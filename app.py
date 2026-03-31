@@ -4,77 +4,70 @@ import numpy as np
 import plotly.graph_objects as go
 from io import BytesIO
 
-# 1. إعدادات الصفحة الاحترافية (Page Config)
-st.set_page_config(page_title="Petro-Elite Dashboard", layout="wide", page_icon="🛢️")
+# 1. إعدادات بسيطة وواضحة (بدون تعقيدات CSS)
+st.set_page_config(page_title="Petro-Elite Dashboard", layout="wide")
 
-# تحسين المظهر البصري ليكون مشرقاً وعالي الوضوح
-st.markdown("""
-    <style>
-    .stApp { background-color: #ffffff; }
-    section[data-testid="stSidebar"] { background-color: #f8fafc; border-right: 1px solid #e2e8f0; }
-    div[data-testid="stMetric"] { background-color: #fdfdfd; border: 1px solid #edf2f7; padding: 20px; border-radius: 10px; }
-    h1, h2, h3 { color: #1e293b; font-family: 'Inter', sans-serif; }
-    .logo-box { display: flex; justify-content: center; padding: 15px; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# 2. القائمة الجانبية (الشعار الصناعي + التحكم)
+# 2. القائمة الجانبية (الشعار + المدخلات الأساسية فقط)
 with st.sidebar:
     # شعار برج الحفر وقطرة النفط
     logo_url = "https://cdn-icons-png.flaticon.com/512/3011/3011503.png"
-    st.markdown(f'<div class="logo-box"><img src="{logo_url}" width="120"></div>', unsafe_allow_html=True)
+    st.image(logo_url, width=120)
     
-    st.markdown("<h3 style='text-align: center;'>Eng. Hussein Ali</h3>", unsafe_allow_html=True)
-    st.write("---")
+    st.header("Control Center")
+    st.write(f"Eng. Hussein Ali")
+    st.markdown("---")
     
-    st.subheader("🛠️ Reservoir & Tubing")
-    p_res = st.number_input("Res. Pressure (psi)", value=3500)
-    pi = st.slider("Productivity Index", 0.5, 5.0, 1.5)
-    t_size = st.selectbox("Tubing Size (in)", [2.375, 2.875, 3.5])
+    # المدخلات كما في المراحل السابقة
+    q_i = st.number_input("Initial Oil Rate (bbl/d)", value=1000)
+    d_i = st.slider("Decline Rate", 0.1, 0.9, 0.2)
+    b = st.slider("b-factor", 0.0, 1.0, 0.5)
+    months = st.slider("Forecast Months", 12, 72, 36)
     
-    st.subheader("💰 Economics")
-    oil_price = st.slider("Oil Price ($/bbl)", 40, 140, 85)
+    st.markdown("---")
+    water_cut = st.slider("Water Cut (%)", 0, 100, 40)
+    oil_price = st.number_input("Oil Price ($/bbl)", value=80)
 
-# 3. محرك الحسابات المتقدم (Nodal Analysis Logic)
-q_range = np.linspace(0, p_res * pi, 100)
-pwf_ipr = p_res - (q_range / pi)
-# معادلة VLP فيزيائية محسنة
-pwf_vlp = 250 + (0.0008 * q_range**1.85 / (t_size/2.875)**4) + 1150
+# 3. الحسابات الهندسية (المرحلة الثالثة)
+time = np.arange(0, months + 1)
+if b == 0:
+    q_t = q_i * np.exp(-d_i * time / 12)
+else:
+    q_t = q_i / (1 + b * (d_i / 12) * time)**(1/b)
 
-idx = np.argwhere(np.diff(np.sign(pwf_ipr - pwf_vlp))).flatten()
-opt_q = q_range[idx[0]] if len(idx) > 0 else 0
-opt_p = pwf_ipr[idx[0]] if len(idx) > 0 else 0
+eur = (q_t.sum() / len(q_t)) * months * 30.44
 
-# 4. لوحة النتائج الرئيسية
-st.title("💎 Petro-Elite™ Production Optimizer")
-st.caption("Strategic Decision Support for Oil & Gas Assets")
+# 4. واجهة النتائج (مرتبة وبسيطة)
+st.title("🚀 Petro-Elite Dashboard")
+st.markdown("---")
 
-c1, c2, c3 = st.columns(3)
-c1.metric("Optimal Rate", f"{int(opt_q)} bbl/d")
-c2.metric("Flowing Pressure", f"{int(opt_p)} psi")
-c3.metric("Daily Gross Revenue", f"${int(opt_q * oil_price):,}")
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Recovery (EUR)", f"{int(eur):,} bbl")
+col2.metric("Final Rate", f"{int(q_t[-1])} bbl/d")
 
-# 5. الرسم البياني التفاعلي
-st.markdown("### 📊 Nodal Analysis: Performance Match")
+# منطق التوصية الذكي (المرحلة 3)
+if water_cut > 70:
+    recommendation = "ESP (High Water Cut)"
+elif q_i < 300:
+    recommendation = "Sucker Rod Pump"
+else:
+    recommendation = "Natural Flow"
+col3.info(f"**Recommended:** {recommendation}")
+
+# 5. الرسم البياني (واضح وعريض)
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=q_range, y=pwf_ipr, name="IPR Curve", line=dict(color='#2563eb', width=4)))
-fig.add_trace(go.Scatter(x=q_range, y=pwf_vlp, name="VLP Curve", line=dict(color='#dc2626', width=4)))
-
-if opt_q > 0:
-    fig.add_trace(go.Scatter(x=[opt_q], y=[opt_p], mode='markers+text', 
-                             name="Match Point", text=["OPTIMAL"], 
-                             marker=dict(size=15, color='#fbbf24', symbol='diamond')))
-
-fig.update_layout(plot_bgcolor='white', xaxis_title="Rate (bbl/d)", yaxis_title="Pressure (psi)",
-                  height=500, margin=dict(l=0, r=0, t=30, b=0))
+fig.add_trace(go.Scatter(x=time, y=q_t, name="Oil Production", line=dict(color='blue', width=3)))
+fig.update_layout(title="Well Performance Forecast", xaxis_title="Months", yaxis_title="Rate (bbl/d)", template="plotly_white")
 st.plotly_chart(fig, use_container_width=True)
 
-# 6. التذييل والتحميل
-st.markdown("---")
-col_f1, col_f2 = st.columns([4, 1])
-col_f1.write("© 2026 Developed by Eng. Hussein Ali Al-Amery | Petroleum Engineering")
+# 6. الجدول والتحميل
+with st.expander("View Data Table"):
+    df = pd.DataFrame({"Month": time, "Rate": q_t.round(2)})
+    st.dataframe(df, use_container_width=True)
+    
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False)
+    st.download_button("Download Excel Report", output.getvalue(), "Production_Report.xlsx")
 
-# زر تحميل البيانات
-df_final = pd.DataFrame({"Rate": q_range, "IPR": pwf_ipr, "VLP": pwf_vlp})
-csv = df_final.to_csv(index=False).encode('utf-8')
-col_f2.download_button("📩 Download Data", csv, "well_data.csv", "text/csv")
+st.markdown("---")
+st.write("Prepared by Eng. Hussein Ali | Petroleum Engineering Excellence")
