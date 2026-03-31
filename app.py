@@ -20,7 +20,7 @@ st.markdown("""
 # 2. القائمة الجانبية (Control Center)
 with st.sidebar:
     st.markdown("<h2 style='text-align: center;'>Control Center</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; font-size: 0.9em; color: #64748b;'>Developed & Executed by:<br><b>Eng. Hussein Al-Amery</b></p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-size: 0.9em; color: #64748b;'>Developed & Executed by:<br><b>Eng. Hussein Al-Ameri</b></p>", unsafe_allow_html=True)
     st.markdown("---")
     
     # مدخلات المهندس الأساسية (Arps Decline Parameters)
