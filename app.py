@@ -5,61 +5,72 @@ import plotly.graph_objects as go
 from io import BytesIO
 
 # إعدادات الصفحة
-st.set_page_config(page_title="Petro-Economics Pro", layout="wide")
+st.set_page_config(page_title="Petro-Decision Support", layout="wide")
 
-st.title("🛢️ Advanced Well Analytics & Economics")
+st.title("🚀 Smart Well Advisor & Artificial Lift Selector")
 st.markdown("---")
 
 # --- القائمة الجانبية (Sidebar) ---
-st.sidebar.header("1. Engineering Parameters")
-q_i = st.sidebar.number_input("Initial Oil Rate (bbl/d)", value=1200)
-d_i = st.sidebar.slider("Decline Rate (per year)", 0.1, 0.9, 0.3)
-b = st.sidebar.slider("Decline Exponent (b-factor)", 0.0, 1.0, 0.5)
-months = st.sidebar.slider("Forecast Period (Months)", 12, 120, 60)
+st.sidebar.header("1. Production Data")
+q_i = st.sidebar.number_input("Initial Oil Rate (bbl/d)", value=1000)
+d_i = st.sidebar.slider("Decline Rate (per year)", 0.1, 0.9, 0.2)
+b = st.sidebar.slider("b-factor", 0.0, 1.0, 0.5)
+months = st.sidebar.slider("Forecast Period", 12, 120, 60)
 
-st.sidebar.header("2. Economic Parameters")
-oil_price = st.sidebar.slider("Oil Price ($/bbl)", 40, 150, 85)
-opex = st.sidebar.number_input("Operating Cost ($/bbl)", value=25)
+st.sidebar.header("2. Reservoir & Fluid")
+water_cut = st.sidebar.slider("Current Water Cut (%)", 0, 95, 40)
+bhp = st.sidebar.number_input("Bottomhole Pressure (psi)", value=2500)
+gas_oil_ratio = st.sidebar.number_input("GOR (scf/bbl)", value=500)
 
-# --- الحسابات الهندسية والمالية ---
+# --- الحسابات الهندسية ---
 time = np.arange(0, months + 1)
 if b == 0:
     q_t = q_i * np.exp(-d_i * time / 12)
 else:
     q_t = q_i / (1 + b * (d_i / 12) * time)**(1/b)
 
-# التصحيح هنا: حساب الإنتاج التراكمي بطريقة مستقرة
 eur = (q_t.sum() / len(q_t)) * months * 30.44
-net_profit_per_bbl = oil_price - opex
-total_revenue = eur * net_profit_per_bbl
 
-economic_limit_rate = 50 
+# --- نظام التوصية الذكي (Logic) ---
+st.subheader("💡 Engineering Recommendation")
+rec_col1, rec_col2 = st.columns([1, 2])
 
-# إنشاء الجدول
-df = pd.DataFrame({
-    "Month": time,
-    "Oil Rate (bbl/d)": q_t.round(2),
-    "Monthly Revenue ($)": (q_t * 30.44 * net_profit_per_bbl).round(0)
-})
+with rec_col1:
+    if water_cut > 70 and q_i > 500:
+        recommendation = "Electrical Submersible Pump (ESP)"
+        reason = "High fluid volume and high water cut detected."
+        color = "blue"
+    elif gas_oil_ratio > 800:
+        recommendation = "Gas Lift System"
+        reason = "High GOR makes the well a good candidate for gas injection."
+        color = "green"
+    elif q_i < 300:
+        recommendation = "Sucker Rod Pump (SRP)"
+        reason = "Low production rate; conventional pumping is more efficient."
+        color = "orange"
+    else:
+        recommendation = "Natural Flow"
+        reason = "Well conditions are stable for current production."
+        color = "gray"
+    
+    st.info(f"**Suggested System:** {recommendation}")
+    st.caption(f"Reason: {reason}")
 
-# --- عرض النتائج الرئيسية ---
-col1, col2, col3 = st.columns(3)
-col1.metric("Estimated EUR", f"{int(eur):,} bbl")
-col2.metric("Projected Net Revenue", f"${int(total_revenue):,}")
-col3.metric("Profit per Barrel", f"${net_profit_per_bbl}")
-
-# --- الرسم البياني ---
+# --- الرسم البياني المطور ---
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=df["Month"], y=df["Oil Rate (bbl/d)"], name="Production", line=dict(color='#2ecc71', width=3)))
-fig.add_hline(y=economic_limit_rate, line_dash="dot", line_color="red", annotation_text="Limit")
-fig.update_layout(title="Well Performance Forecast", xaxis_title="Months", yaxis_title="Rate (bbl/d)")
+fig.add_trace(go.Scatter(x=time, y=q_t, name="Oil Rate", line=dict(color='#27ae60', width=4)))
+fig.update_layout(title="Well Performance Analysis", xaxis_title="Months", yaxis_title="Rate (bbl/d)")
 st.plotly_chart(fig, use_container_width=True)
 
-# --- أزرار التحميل ---
-st.markdown("### 📥 Reports")
-output = BytesIO()
-with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-    df.to_excel(writer, index=False, sheet_name='Economics')
-processed_data = output.getvalue()
-st.download_button(label="Download Excel Report", data=processed_data, file_name='well_report.xlsx')
+# --- جدول البيانات وأزرار التحميل ---
+with st.expander("View Detailed Calculations"):
+    df = pd.DataFrame({"Month": time, "Rate": q_t.round(2)})
+    st.dataframe(df, use_container_width=True)
     
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False)
+    st.download_button("Download Full Report", output.getvalue(), "Well_Advisor_Report.xlsx")
+
+st.markdown("---")
+st.write("Constructed by Eng. Hussein | Technical Reference: API RP 11G")
